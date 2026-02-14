@@ -1,0 +1,256 @@
+.swimmer-view {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.swimmer-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.swimmer-header h1 {
+  font-size: 2rem;
+  margin-bottom: 5px;
+}
+
+.swimmer-header p {
+  opacity: 0.9;
+  font-size: 1rem;
+}
+
+.swimmer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+.filters {
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.filters h2 {
+  color: #667eea;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+}
+
+.filter-group {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.filter-group label {
+  font-weight: 600;
+  min-width: 80px;
+  color: #333;
+}
+
+.filter-group select {
+  flex: 1;
+  padding: 10px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.results-section {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.results-section h2 {
+  color: #667eea;
+  margin-bottom: 25px;
+  font-size: 1.8rem;
+}
+
+.no-results {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 1.2rem;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.result-card {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 3px solid transparent;
+}
+
+.result-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.result-card.gold {
+  border-color: #FFD700;
+  background: linear-gradient(135deg, #FFF9E6 0%, #FFE8B3 100%);
+}
+
+.result-card.silver {
+  border-color: #C0C0C0;
+  background: linear-gradient(135deg, #F5F5F5 0%, #E0E0E0 100%);
+}
+
+.result-card.bronze {
+  border-color: #CD7F32;
+  background: linear-gradient(135deg, #FFF0E6 0%, #FFD9B3 100%);
+}
+
+.rank-badge {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.result-info h3 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.event-name {
+  font-size: 1.1rem;
+  color: #667eea;
+  font-weight: 600;
+  margin: 5px 0;
+  text-align: center;
+}
+
+.meet-name {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 5px 0;
+  text-align: center;
+}
+
+.timing {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #0066cc;
+  text-align: center;
+  margin: 15px 0;
+}
+
+.classification {
+  display: inline-block;
+  background: #667eea;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.swimmers-list-section {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.swimmers-list-section h2 {
+  color: #667eea;
+  margin-bottom: 25px;
+  font-size: 1.8rem;
+}
+
+.swimmers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.swimmer-card {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 4px solid #667eea;
+  transition: all 0.3s ease;
+}
+
+.swimmer-card:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.swimmer-card h3 {
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+.swimmer-card p {
+  color: #666;
+  margin: 5px 0;
+}
+
+.classification-tag {
+  display: inline-block;
+  background: #667eea;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .swimmer-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-group label {
+    min-width: auto;
+  }
+
+  .filter-group select {
+    width: 100%;
+  }
+
+  .results-grid,
+  .swimmers-grid {
+    grid-template-columns: 1fr;
+  }
+}
