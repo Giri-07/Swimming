@@ -11,6 +11,7 @@ function App() {
   const [meets, setMeets] = useState([]);
   const [events, setEvents] = useState([]);
   const [results, setResults] = useState([]);
+  const [entries, setEntries] = useState([]);
   
   useEffect(() => {
     if (user) {
@@ -23,12 +24,14 @@ function App() {
     fetchMeets();
     fetchEvents();
     fetchResults();
+    fetchEntries();
   };
 
   const fetchSwimmers = () => axios.get('http://localhost:5000/swimmers').then(res => setSwimmers(res.data)).catch(() => {});
   const fetchMeets = () => axios.get('http://localhost:5000/meets').then(res => setMeets(res.data)).catch(() => {});
   const fetchEvents = () => axios.get('http://localhost:5000/events').then(res => setEvents(res.data)).catch(() => {});
   const fetchResults = () => axios.get('http://localhost:5000/results').then(res => setResults(res.data)).catch(() => {});
+  const fetchEntries = () => axios.get('http://localhost:5000/entries').then(res => setEntries(res.data)).catch(() => {});
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -49,6 +52,7 @@ function App() {
         meets={meets}
         events={events}
         results={results}
+        entries={entries}
         onRefresh={fetchAllData}
         onLogout={handleLogout}
         user={user}
@@ -62,6 +66,8 @@ function App() {
       meets={meets}
       events={events}
       results={results}
+      entries={entries}
+      onRefresh={fetchAllData}
       onLogout={handleLogout}
       user={user}
     />

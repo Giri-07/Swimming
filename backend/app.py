@@ -4,17 +4,32 @@ from flask_cors import CORS
 import csv
 import io
 from werkzeug.security import generate_password_hash, check_password_hash
+import config
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///swimming.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# MySQL Configuration from config.py
+app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATIONS
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = config.SQLALCHEMY_ENGINE_OPTIONS
+
 db = SQLAlchemy(app)
 
 class Swimmer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.String(50), unique=True, nullable=False)  # Unique athlete ID
-    name = db.Column(db.String(100), nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False)  # Full name (computed)
+    date_of_birth = db.Column(db.String(20), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    father_name = db.Column(db.String(100), nullable=False)
+    father_mobile = db.Column(db.String(20), nullable=False)
+    mother_name = db.Column(db.String(100), nullable=False)
+    mother_mobile = db.Column(db.String(20), nullable=False)
+    ksa_id = db.Column(db.String(50), nullable=False)
+    sfi_id = db.Column(db.String(50), nullable=False)
     age = db.Column(db.Integer, nullable=False)
     gender = db.Column(db.String(10), nullable=False)
     classification = db.Column(db.String(20), nullable=True)
@@ -56,6 +71,17 @@ class PersonalBest(db.Model):
     meet_id = db.Column(db.Integer, db.ForeignKey('meet.id'), nullable=False)  # Where PB was set
     date = db.Column(db.String(20), nullable=False)
     season_year = db.Column(db.Integer, nullable=False)  # For season best tracking
+
+class Entry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    swimmer_id = db.Column(db.Integer, db.ForeignKey('swimmer.id'), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    meet_id = db.Column(db.Integer, db.ForeignKey('meet.id'), nullable=False)
+    entry_time = db.Column(db.Float, nullable=True)  # Seed time / Previous best time
+    status = db.Column(db.String(20), default='pending')  # 'pending', 'approved', 'rejected', 'withdrawn'
+    entry_date = db.Column(db.String(20), nullable=False)  # When they registered
+    heat = db.Column(db.Integer, nullable=True)  # Assigned heat number
+    lane = db.Column(db.Integer, nullable=True)  # Assigned lane number
 
 @app.route('/swimmers', methods=['POST'])
 def add_swimmer():
@@ -234,6 +260,99 @@ def get_rankings(event_id):
     
     return jsonify(result)
 
+# Entry Management Endpoints
+@app.route('/entries', methods=['POST'])
+def add_entry():
+    """Swimmer registers for an event"""
+    data = request.json
+    from datetime import datetime
+    
+    # Check if already entered
+    existing = Entry.query.filter_by(
+        swimmer_id=data['swimmer_id'],
+        event_id=data['event_id'],
+        meet_id=data['meet_id']
+    ).first()
+    
+    if existing:
+        return jsonify({'error': 'Already registered for this event'}), 400
+    
+    entry = Entry(
+        swimmer_id=data['swimmer_id'],
+        event_id=data['event_id'],
+        meet_id=data['meet_id'],
+        entry_time=data.get('entry_time'),
+        status='pending',
+        entry_date=datetime.now().strftime('%Y-%m-%d')
+    )
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify({'id': entry.id, 'status': entry.status}), 201
+
+@app.route('/entries', methods=['GET'])
+def get_entries():
+    """Get all entries (admin view)"""
+    meet_id = request.args.get('meet_id')
+    swimmer_id = request.args.get('swimmer_id')
+    
+    query = Entry.query
+    if meet_id:
+        query = query.filter_by(meet_id=int(meet_id))
+    if swimmer_id:
+        query = query.filter_by(swimmer_id=int(swimmer_id))
+    
+    entries = query.all()
+    result = []
+    for e in entries:
+        swimmer = Swimmer.query.get(e.swimmer_id)
+        event = Event.query.get(e.event_id)
+        meet = Meet.query.get(e.meet_id)
+        result.append({
+            'id': e.id,
+            'swimmer_id': e.swimmer_id,
+            'swimmer_name': swimmer.name if swimmer else 'Unknown',
+            'athlete_id': swimmer.athlete_id if swimmer else '',
+            'event_id': e.event_id,
+            'event_name': event.name if event else 'Unknown',
+            'meet_id': e.meet_id,
+            'meet_name': meet.name if meet else 'Unknown',
+            'entry_time': e.entry_time,
+            'status': e.status,
+            'entry_date': e.entry_date,
+            'heat': e.heat,
+            'lane': e.lane
+        })
+    return jsonify(result)
+
+@app.route('/entries/<int:entry_id>', methods=['PUT'])
+def update_entry(entry_id):
+    """Update entry status (admin approves/rejects)"""
+    entry = Entry.query.get(entry_id)
+    if not entry:
+        return jsonify({'error': 'Entry not found'}), 404
+    
+    data = request.json
+    if 'status' in data:
+        entry.status = data['status']
+    if 'heat' in data:
+        entry.heat = data['heat']
+    if 'lane' in data:
+        entry.lane = data['lane']
+    
+    db.session.commit()
+    return jsonify({'id': entry.id, 'status': entry.status}), 200
+
+@app.route('/entries/<int:entry_id>', methods=['DELETE'])
+def delete_entry(entry_id):
+    """Withdraw entry"""
+    entry = Entry.query.get(entry_id)
+    if not entry:
+        return jsonify({'error': 'Entry not found'}), 404
+    
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'message': 'Entry withdrawn'}), 200
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
@@ -249,6 +368,73 @@ def register():
     db.session.add(user)
     db.session.commit()
     return jsonify({'id': user.id, 'username': user.username, 'role': user.role}), 201
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.json
+    
+    # Check if email already exists
+    if Swimmer.query.filter_by(email=data['email']).first():
+        return jsonify({'error': 'Email already registered'}), 400
+    
+    # Check if username already exists
+    if User.query.filter_by(username=data['email']).first():
+        return jsonify({'error': 'Username already exists'}), 400
+    
+    # Auto-generate athlete_id
+    count = Swimmer.query.count() + 1
+    athlete_id = f"ATH-2026-{count:04d}"
+    
+    # Calculate age from date of birth
+    from datetime import datetime
+    try:
+        dob = datetime.strptime(data['date_of_birth'], '%Y-%m-%d')
+        today = datetime.now()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    except:
+        age = 0
+    
+    # Create swimmer record
+    full_name = f"{data['first_name']} {data['last_name']}"
+    swimmer = Swimmer(
+        athlete_id=athlete_id,
+        first_name=data['first_name'],
+        last_name=data['last_name'],
+        name=full_name,
+        date_of_birth=data['date_of_birth'],
+        email=data['email'],
+        father_name=data['father_name'],
+        father_mobile=data['father_mobile'],
+        mother_name=data['mother_name'],
+        mother_mobile=data['mother_mobile'],
+        ksa_id=data['ksa_id'],
+        sfi_id=data['sfi_id'],
+        age=age,
+        gender=data.get('gender', 'Not specified'),
+        classification=data.get('classification'),
+        country=data.get('country'),
+        club=data.get('club')
+    )
+    db.session.add(swimmer)
+    db.session.flush()  # Get swimmer.id before committing
+    
+    # Create user account (username is email, password is default)
+    user = User(
+        username=data['email'],
+        password_hash=generate_password_hash(data['password']),
+        role='swimmer',
+        swimmer_id=swimmer.id
+    )
+    db.session.add(user)
+    db.session.commit()
+    
+    return jsonify({
+        'id': user.id,
+        'username': user.username,
+        'role': user.role,
+        'swimmer_id': swimmer.id,
+        'athlete_id': athlete_id
+    }), 201
 
 @app.route('/login', methods=['POST'])
 def login():

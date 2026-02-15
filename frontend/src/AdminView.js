@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './AdminView.css';
 
-function AdminView({ swimmers, meets, events, results, onRefresh, onLogout, user }) {
+function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLogout, user }) {
   const [activeTab, setActiveTab] = useState('swimmers');
   const [swimmerForm, setSwimmerForm] = useState({ athlete_id: '', name: '', age: '', gender: '', classification: '', country: '', club: '' });
   const [meetForm, setMeetForm] = useState({ name: '', date: '', location: '' });
@@ -83,6 +83,26 @@ function AdminView({ swimmers, meets, events, results, onRefresh, onLogout, user
     }
   };
 
+  const handleEntryStatusChange = async (entryId, newStatus) => {
+    try {
+      await axios.put(`http://localhost:5000/entries/${entryId}`, { status: newStatus });
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to update entry:', error);
+    }
+  };
+
+  const handleDeleteEntry = async (entryId) => {
+    if (window.confirm('Are you sure you want to delete this entry?')) {
+      try {
+        await axios.delete(`http://localhost:5000/entries/${entryId}`);
+        onRefresh();
+      } catch (error) {
+        console.error('Failed to delete entry:', error);
+      }
+    }
+  };
+
   return (
     <div className="admin-view">
       <header className="admin-header">
@@ -97,6 +117,7 @@ function AdminView({ swimmers, meets, events, results, onRefresh, onLogout, user
         <button className={activeTab === 'swimmers' ? 'tab active' : 'tab'} onClick={() => setActiveTab('swimmers')}>Swimmers</button>
         <button className={activeTab === 'meets' ? 'tab active' : 'tab'} onClick={() => setActiveTab('meets')}>Meets</button>
         <button className={activeTab === 'events' ? 'tab active' : 'tab'} onClick={() => setActiveTab('events')}>Events</button>
+        <button className={activeTab === 'entries' ? 'tab active' : 'tab'} onClick={() => setActiveTab('entries')}>Entries</button>
         <button className={activeTab === 'results' ? 'tab active' : 'tab'} onClick={() => setActiveTab('results')}>Results</button>
         <button className={activeTab === 'rankings' ? 'tab active' : 'tab'} onClick={() => setActiveTab('rankings')}>Rankings</button>
         <button className={activeTab === 'upload' ? 'tab active' : 'tab'} onClick={() => setActiveTab('upload')}>Upload CSV</button>
@@ -229,6 +250,102 @@ function AdminView({ swimmers, meets, events, results, onRefresh, onLogout, user
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {activeTab === 'entries' && (
+          <div className="section">
+            <h2>Event Entries Management</h2>
+            <p className="info-text">Manage swimmer registrations for events</p>
+            
+            {entries.length === 0 ? (
+              <div className="no-data">No entries yet</div>
+            ) : (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Athlete ID</th>
+                    <th>Swimmer</th>
+                    <th>Event</th>
+                    <th>Meet</th>
+                    <th>Entry Time</th>
+                    <th>Status</th>
+                    <th>Entry Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map(entry => (
+                    <tr key={entry.id} className={`entry-row ${entry.status}`}>
+                      <td><strong>{entry.athlete_id}</strong></td>
+                      <td>{entry.swimmer_name}</td>
+                      <td>{entry.event_name}</td>
+                      <td>{entry.meet_name}</td>
+                      <td>{entry.entry_time ? `${entry.entry_time}s` : 'N/A'}</td>
+                      <td>
+                        <span className={`status-badge status-${entry.status}`}>
+                          {entry.status}
+                        </span>
+                      </td>
+                      <td>{entry.entry_date}</td>
+                      <td>
+                        <div className="action-buttons">
+                          {entry.status === 'pending' && (
+                            <>
+                              <button 
+                                onClick={() => handleEntryStatusChange(entry.id, 'approved')}
+                                className="btn-approve"
+                              >
+                                ✓ Approve
+                              </button>
+                              <button 
+                                onClick={() => handleEntryStatusChange(entry.id, 'rejected')}
+                                className="btn-reject"
+                              >
+                                ✗ Reject
+                              </button>
+                            </>
+                          )}
+                          {entry.status === 'approved' && (
+                            <button 
+                              onClick={() => handleEntryStatusChange(entry.id, 'pending')}
+                              className="btn-pending"
+                            >
+                              ↺ Pending
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleDeleteEntry(entry.id)}
+                            className="btn-delete"
+                          >
+                            🗑 Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            
+            <div className="entry-stats">
+              <div className="stat-card">
+                <h3>{entries.filter(e => e.status === 'pending').length}</h3>
+                <p>Pending</p>
+              </div>
+              <div className="stat-card">
+                <h3>{entries.filter(e => e.status === 'approved').length}</h3>
+                <p>Approved</p>
+              </div>
+              <div className="stat-card">
+                <h3>{entries.filter(e => e.status === 'rejected').length}</h3>
+                <p>Rejected</p>
+              </div>
+              <div className="stat-card">
+                <h3>{entries.length}</h3>
+                <p>Total</p>
+              </div>
+            </div>
           </div>
         )}
 
