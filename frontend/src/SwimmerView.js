@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from './axiosConfig';
 import './SwimmerView.css';
 
 function SwimmerView({ swimmers, meets, events, results, entries, onRefresh, onLogout, user }) {
@@ -24,7 +24,7 @@ function SwimmerView({ swimmers, meets, events, results, entries, onRefresh, onL
     setEntryMessage('');
     
     try {
-      await axios.post('http://localhost:5000/entries', {
+      await axiosInstance.post('/entries', {
         swimmer_id: user.swimmer_id,
         meet_id: parseInt(entryForm.meet_id),
         event_id: parseInt(entryForm.event_id),
@@ -41,7 +41,7 @@ function SwimmerView({ swimmers, meets, events, results, entries, onRefresh, onL
   const handleWithdrawEntry = async (entryId) => {
     if (window.confirm('Are you sure you want to withdraw from this event?')) {
       try {
-        await axios.delete(`http://localhost:5000/entries/${entryId}`);
+        await axiosInstance.delete(`/entries/${entryId}`);
         setEntryMessage('✅ Entry withdrawn successfully');
         onRefresh();
       } catch (error) {
@@ -54,7 +54,7 @@ function SwimmerView({ swimmers, meets, events, results, entries, onRefresh, onL
     <div className="swimmer-view">
       <header className="swimmer-header">
         <div>
-          <h1>🏊 Para Swimming</h1>
+          <h1>🏊 Swimming</h1>
           <p>Welcome, {user.username}</p>
         </div>
         <button onClick={onLogout} className="logout-btn">Logout</button>

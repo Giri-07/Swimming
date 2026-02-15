@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from './axiosConfig';
 import Home from './Home';
 import Login from './Login';
 import AdminView from './AdminView';
@@ -15,6 +15,15 @@ function App() {
   const [results, setResults] = useState([]);
   const [entries, setEntries] = useState([]);
   
+  // Check for stored user on mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('access_token');
+    if (storedUser && token) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+  
   useEffect(() => {
     if (user) {
       fetchAllData();
@@ -29,11 +38,11 @@ function App() {
     fetchEntries();
   };
 
-  const fetchSwimmers = () => axios.get('http://localhost:5000/swimmers').then(res => setSwimmers(res.data)).catch(() => {});
-  const fetchMeets = () => axios.get('http://localhost:5000/meets').then(res => setMeets(res.data)).catch(() => {});
-  const fetchEvents = () => axios.get('http://localhost:5000/events').then(res => setEvents(res.data)).catch(() => {});
-  const fetchResults = () => axios.get('http://localhost:5000/results').then(res => setResults(res.data)).catch(() => {});
-  const fetchEntries = () => axios.get('http://localhost:5000/entries').then(res => setEntries(res.data)).catch(() => {});
+  const fetchSwimmers = () => axiosInstance.get('/swimmers').then(res => setSwimmers(res.data)).catch(() => {});
+  const fetchMeets = () => axiosInstance.get('/meets').then(res => setMeets(res.data)).catch(() => {});
+  const fetchEvents = () => axiosInstance.get('/events').then(res => setEvents(res.data)).catch(() => {});
+  const fetchResults = () => axiosInstance.get('/results').then(res => setResults(res.data)).catch(() => {});
+  const fetchEntries = () => axiosInstance.get('/entries').then(res => setEntries(res.data)).catch(() => {});
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -41,6 +50,10 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Clear tokens and user data from localStorage
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
     setUser(null);
     setShowLogin(false);
   };

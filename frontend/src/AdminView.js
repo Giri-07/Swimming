@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from './axiosConfig';
 import './AdminView.css';
 
 function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLogout, user }) {
@@ -15,7 +15,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
 
   const handleSwimmerSubmit = e => {
     e.preventDefault();
-    axios.post('http://localhost:5000/swimmers', swimmerForm).then(() => {
+    axiosInstance.post('/swimmers', swimmerForm).then(() => {
       onRefresh();
       setSwimmerForm({ athlete_id: '', name: '', age: '', gender: '', classification: '', country: '', club: '' });
     });
@@ -23,7 +23,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
 
   const handleMeetSubmit = e => {
     e.preventDefault();
-    axios.post('http://localhost:5000/meets', meetForm).then(() => {
+    axiosInstance.post('/meets', meetForm).then(() => {
       onRefresh();
       setMeetForm({ name: '', date: '', location: '' });
     });
@@ -31,7 +31,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
 
   const handleEventSubmit = e => {
     e.preventDefault();
-    axios.post('http://localhost:5000/events', eventForm).then(() => {
+    axiosInstance.post('/events', eventForm).then(() => {
       onRefresh();
       setEventForm({ name: '', distance: '', stroke: '' });
     });
@@ -39,7 +39,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
 
   const handleResultSubmit = e => {
     e.preventDefault();
-    axios.post('http://localhost:5000/results', resultForm).then(() => {
+    axiosInstance.post('/results', resultForm).then(() => {
       onRefresh();
       setResultForm({ swimmer_id: '', event_id: '', meet_id: '', timing: '' });
     });
@@ -56,7 +56,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
     formData.append('file', uploadFile);
 
     try {
-      const response = await axios.post('http://localhost:5000/upload-results', formData, {
+      const response = await axiosInstance.post('/upload-results', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setUploadMessage(response.data.message);
@@ -69,7 +69,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
 
   const fetchRankings = async (eventId) => {
     try {
-      const response = await axios.get(`http://localhost:5000/rankings/${eventId}`);
+      const response = await axiosInstance.get(`/rankings/${eventId}`);
       setRankings(response.data);
     } catch (error) {
       console.error('Failed to fetch rankings:', error);
@@ -85,7 +85,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
 
   const handleEntryStatusChange = async (entryId, newStatus) => {
     try {
-      await axios.put(`http://localhost:5000/entries/${entryId}`, { status: newStatus });
+      await axiosInstance.put(`/entries/${entryId}`, { status: newStatus });
       onRefresh();
     } catch (error) {
       console.error('Failed to update entry:', error);
@@ -95,7 +95,7 @@ function AdminView({ swimmers, meets, events, results, entries, onRefresh, onLog
   const handleDeleteEntry = async (entryId) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        await axios.delete(`http://localhost:5000/entries/${entryId}`);
+        await axiosInstance.delete(`/entries/${entryId}`);
         onRefresh();
       } catch (error) {
         console.error('Failed to delete entry:', error);

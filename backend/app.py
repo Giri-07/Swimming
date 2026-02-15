@@ -1,13 +1,21 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 import csv
 import io
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import timedelta
 import config
 
 app = Flask(__name__)
 CORS(app)
+
+# JWT Configuration
+app.config['JWT_SECRET_KEY'] = 'your-secret-key-change-this-in-production'  # Change this!
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)
+jwt = JWTManager(app)
 
 # MySQL Configuration from config.py
 app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
@@ -83,21 +91,8 @@ class Entry(db.Model):
     heat = db.Column(db.Integer, nullable=True)  # Assigned heat number
     lane = db.Column(db.Integer, nullable=True)  # Assigned lane number
 
-@app.route('/swimmers', methods=['POST'])
-def add_swimmer():
-    data = request.json
-    # Auto-generate athlete_id if not provided
-    if 'athlete_id' not in data:
-        # Generate format: COUNTRY-YEAR-NUMBER (e.g., IND-2026-001)
-        count = Swimmer.query.count() + 1
-        data['athlete_id'] = f"ATH-2026-{count:04d}"
-    
-    swimmer = Swimmer(**data)
-    db.session.add(swimmer)
-    db.session.commit()
-    return jsonify({'id': swimmer.id, 'athlete_id': swimmer.athlete_id}), 201
-
 @app.route('/swimmers', methods=['GET'])
+@jwt_required()
 def get_swimmers():
     swimmers = Swimmer.query.all()
     return jsonify([{
@@ -111,7 +106,23 @@ def get_swimmers():
         'club': s.club
     } for s in swimmers])
 
+@app.route('/swimmers', methods=['POST'])
+@jwt_required()
+def add_swimmer():
+    data = request.json
+    # Auto-generate athlete_id if not provided
+    if 'athlete_id' not in data:
+        # Generate format: COUNTRY-YEAR-NUMBER (e.g., IND-2026-001)
+        count = Swimmer.query.count() + 1
+        data['athlete_id'] = f"ATH-2026-{count:04d}"
+    
+    swimmer = Swimmer(**data)
+    db.session.add(swimmer)
+    db.session.commit()
+    return jsonify({'id': swimmer.id, 'athlete_id': swimmer.athlete_id}), 201
+
 @app.route('/meets', methods=['POST'])
+@jwt_required()
 def add_meet():
     data = request.json
     meet = Meet(**data)
@@ -120,11 +131,13 @@ def add_meet():
     return jsonify({'id': meet.id}), 201
 
 @app.route('/meets', methods=['GET'])
+@jwt_required()
 def get_meets():
     meets = Meet.query.all()
     return jsonify([{'id': m.id, 'name': m.name, 'date': m.date, 'location': m.location} for m in meets])
 
 @app.route('/events', methods=['POST'])
+@jwt_required()
 def add_event():
     data = request.json
     event = Event(**data)
@@ -133,11 +146,13 @@ def add_event():
     return jsonify({'id': event.id}), 201
 
 @app.route('/events', methods=['GET'])
+@jwt_required()
 def get_events():
     events = Event.query.all()
     return jsonify([{'id': e.id, 'name': e.name, 'distance': e.distance, 'stroke': e.stroke} for e in events])
 
 @app.route('/results', methods=['POST'])
+@jwt_required()
 def add_result():
     data = request.json
     result = Result(**data)
@@ -194,11 +209,13 @@ def add_result():
     return jsonify({'id': result.id, 'is_pb': result.timing == pb.best_time}), 201
 
 @app.route('/results', methods=['GET'])
+@jwt_required()
 def get_results():
     results = Result.query.all()
     return jsonify([{'id': r.id, 'swimmer_id': r.swimmer_id, 'event_id': r.event_id, 'meet_id': r.meet_id, 'timing': r.timing, 'rank': r.rank} for r in results])
 
 @app.route('/personal-bests/<int:swimmer_id>', methods=['GET'])
+@jwt_required()
 def get_personal_bests(swimmer_id):
     pbs = PersonalBest.query.filter_by(swimmer_id=swimmer_id).all()
     return jsonify([{
@@ -211,6 +228,7 @@ def get_personal_bests(swimmer_id):
     } for pb in pbs])
 
 @app.route('/performance-history/<int:swimmer_id>/<int:event_id>', methods=['GET'])
+@jwt_required()
 def get_performance_history(swimmer_id, event_id):
     results = Result.query.filter_by(swimmer_id=swimmer_id, event_id=event_id).all()
     history = []
@@ -225,6 +243,7 @@ def get_performance_history(swimmer_id, event_id):
     return jsonify(sorted(history, key=lambda x: x['meet_date']))
 
 @app.route('/rankings/<int:event_id>', methods=['GET'])
+@jwt_required()
 def get_rankings(event_id):
     # Get best time for each swimmer in this event
     swimmers = Swimmer.query.all()
@@ -262,6 +281,7 @@ def get_rankings(event_id):
 
 # Entry Management Endpoints
 @app.route('/entries', methods=['POST'])
+@jwt_required()
 def add_entry():
     """Swimmer registers for an event"""
     data = request.json
@@ -290,6 +310,7 @@ def add_entry():
     return jsonify({'id': entry.id, 'status': entry.status}), 201
 
 @app.route('/entries', methods=['GET'])
+@jwt_required()
 def get_entries():
     """Get all entries (admin view)"""
     meet_id = request.args.get('meet_id')
@@ -325,6 +346,7 @@ def get_entries():
     return jsonify(result)
 
 @app.route('/entries/<int:entry_id>', methods=['PUT'])
+@jwt_required()
 def update_entry(entry_id):
     """Update entry status (admin approves/rejects)"""
     entry = Entry.query.get(entry_id)
@@ -343,6 +365,7 @@ def update_entry(entry_id):
     return jsonify({'id': entry.id, 'status': entry.status}), 200
 
 @app.route('/entries/<int:entry_id>', methods=['DELETE'])
+@jwt_required()
 def delete_entry(entry_id):
     """Withdraw entry"""
     entry = Entry.query.get(entry_id)
@@ -354,6 +377,7 @@ def delete_entry(entry_id):
     return jsonify({'message': 'Entry withdrawn'}), 200
 
 @app.route('/register', methods=['POST'])
+@jwt_required()
 def register():
     data = request.json
     if User.query.filter_by(username=data['username']).first():
@@ -442,7 +466,13 @@ def login():
     user = User.query.filter_by(username=data['username']).first()
     
     if user and check_password_hash(user.password_hash, data['password']):
+        # Create JWT tokens
+        access_token = create_access_token(identity=user.id)
+        refresh_token = create_refresh_token(identity=user.id)
+        
         return jsonify({
+            'access_token': access_token,
+            'refresh_token': refresh_token,
             'id': user.id,
             'username': user.username,
             'role': user.role,
@@ -450,6 +480,28 @@ def login():
         }), 200
     
     return jsonify({'error': 'Invalid username or password'}), 401
+
+@app.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    current_user_id = get_jwt_identity()
+    new_access_token = create_access_token(identity=current_user_id)
+    return jsonify({'access_token': new_access_token}), 200
+
+@app.route('/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if user:
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'role': user.role,
+            'swimmer_id': user.swimmer_id
+        }), 200
+    return jsonify({'error': 'User not found'}), 404
+
 
 @app.route('/upload-results', methods=['POST'])
 def upload_results():

@@ -38,8 +38,22 @@ function Login({ onLogin, onBackToHome }) {
       });
 
       if (response.ok) {
-        const user = await response.json();
+        const data = await response.json();
+        
+        // Store JWT tokens
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        
+        // Create user object without tokens
+        const user = {
+          id: data.id,
+          username: data.username,
+          role: data.role,
+          swimmer_id: data.swimmer_id
+        };
+        
         if (user.role === loginType) {
+          localStorage.setItem('user', JSON.stringify(user));
           onLogin(user);
         } else {
           setError(`This account is not registered as ${loginType}`);
@@ -96,7 +110,7 @@ function Login({ onLogin, onBackToHome }) {
         </button>
       )}
       <div className={`login-box ${isSignup ? 'signup-mode' : ''}`}>
-        <h1>🏊 Para Swimming</h1>
+        <h1>🏊 Swimming</h1>
         <p className="subtitle">Data Management System</p>
         
         {!isSignup && (
