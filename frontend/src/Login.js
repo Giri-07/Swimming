@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Login.css';
 
-function Login({ onLogin }) {
+function Login({ onLogin, onBackToHome }) {
   const [loginType, setLoginType] = useState('admin');
   const [isSignup, setIsSignup] = useState(false);
   const [username, setUsername] = useState('');
@@ -90,6 +90,11 @@ function Login({ onLogin }) {
 
   return (
     <div className="login-container">
+      {onBackToHome && (
+        <button onClick={onBackToHome} className="back-to-home-btn">
+          ← Back to Home
+        </button>
+      )}
       <div className={`login-box ${isSignup ? 'signup-mode' : ''}`}>
         <h1>🏊 Para Swimming</h1>
         <p className="subtitle">Data Management System</p>
