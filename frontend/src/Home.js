@@ -18,24 +18,20 @@ function Home({ onNavigateToLogin }) {
       </header>
 
       <nav className="navigation">
-        <ul className="nav-menu">
-          <li><a href="#about">About Us</a></li>
-          <li className="dropdown">
-            <a href="#disciplines">DISCIPLINES ▼</a>
-          </li>
-          <li className="dropdown">
-            <a href="#latest">LATEST ▼</a>
-          </li>
-          <li><a href="#results">RESULTS</a></li>
-          <li><a href="#science">SPORTS SCIENCE</a></li>
-          <li><a href="#video">VIDEO ANALYSIS</a></li>
-          <li><a href="#events">EVENTS</a></li>
-          <li>
-            <button className="login-signup-btn" onClick={onNavigateToLogin}>
-              LOGIN / SIGN UP
-            </button>
-          </li>
-        </ul>
+        <div className="nav-inner">
+          <ul className="nav-menu">
+            <li><a href="#home">🏠 Home</a></li>
+            <li><a href="#swimming">🏊 Swimming</a></li>
+            <li><a href="#para-swimming">♿ Para Swimming</a></li>
+            <li><a href="#events">📅 Events</a></li>
+            <li><a href="#rankings">🏆 Rankings</a></li>
+            <li><a href="#athletes">👤 Athletes</a></li>
+            <li><a href="#results">📊 Results</a></li>
+          </ul>
+          <button className="login-signup-btn" onClick={onNavigateToLogin}>
+            🔐 Login / Sign Up
+          </button>
+        </div>
       </nav>
 
       <main className="home-content">
@@ -118,8 +114,52 @@ function Home({ onNavigateToLogin }) {
       </main>
 
       <footer className="home-footer">
-        <p>&copy; 2026 Swimming Management System</p>
-        <p>DIVE INTO EXCELLENCE</p>
+        <div className="footer-inner">
+          <div className="footer-col">
+            <div className="footer-logo">
+              <span className="footer-logo-icon">🏊</span>
+              <span className="footer-logo-name">Aquatics</span>
+            </div>
+            <p className="footer-tagline">DIVE INTO EXCELLENCE</p>
+            <p className="footer-desc">Your comprehensive platform for swimming event management, athlete tracking, and performance rankings.</p>
+          </div>
+
+          <div className="footer-col">
+            <h4 className="footer-heading">Quick Links</h4>
+            <ul className="footer-links">
+              <li><a href="#swimming">🏊 Swimming</a></li>
+              <li><a href="#para-swimming">♿ Para Swimming</a></li>
+              <li><a href="#events">📅 Upcoming Events</a></li>
+              <li><a href="#rankings">🏆 Rankings</a></li>
+              <li><a href="#results">📊 Results</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-col">
+            <h4 className="footer-heading">Disciplines</h4>
+            <ul className="footer-links">
+              <li><a href="#freestyle">🌊 Freestyle</a></li>
+              <li><a href="#backstroke">🔄 Backstroke</a></li>
+              <li><a href="#breaststroke">🐸 Breaststroke</a></li>
+              <li><a href="#butterfly">🦋 Butterfly</a></li>
+              <li><a href="#medley">🔀 Individual Medley</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-col">
+            <h4 className="footer-heading">Contact</h4>
+            <ul className="footer-links">
+              <li>📧 info@swimming.com</li>
+              <li>📞 +91 00000 00000</li>
+              <li>📍 India</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <p>&copy; 2026 Aquatics Swimming Management System. All rights reserved.</p>
+          <p className="footer-sub">Built with 💙 for the love of swimming</p>
+        </div>
       </footer>
     </div>
   );
