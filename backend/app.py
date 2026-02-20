@@ -2,10 +2,13 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_mail import Mail, Message
 import csv
 import io
+import random
+import string
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import timedelta
+from datetime import datetime, timedelta
 import config
 
 app = Flask(__name__)
@@ -22,7 +25,16 @@ app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATIONS
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = config.SQLALCHEMY_ENGINE_OPTIONS
 
+# Email Configuration (update in config.py with your Gmail credentials)
+app.config['MAIL_SERVER'] = getattr(config, 'MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = getattr(config, 'MAIL_PORT', 587)
+app.config['MAIL_USE_TLS'] = getattr(config, 'MAIL_USE_TLS', True)
+app.config['MAIL_USERNAME'] = getattr(config, 'MAIL_USERNAME', None)
+app.config['MAIL_PASSWORD'] = getattr(config, 'MAIL_PASSWORD', None)
+app.config['MAIL_DEFAULT_SENDER'] = getattr(config, 'MAIL_USERNAME', 'noreply@aquatics.com')
+
 db = SQLAlchemy(app)
+mail = Mail(app)
 
 class Swimmer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -90,6 +102,14 @@ class Entry(db.Model):
     entry_date = db.Column(db.String(20), nullable=False)  # When they registered
     heat = db.Column(db.Integer, nullable=True)  # Assigned heat number
     lane = db.Column(db.Integer, nullable=True)  # Assigned lane number
+
+class OTP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.String(6), nullable=False)
+    purpose = db.Column(db.String(20), nullable=False)  # 'reset'
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    is_used = db.Column(db.Boolean, default=False)
 
 @app.route('/swimmers', methods=['GET'])
 @jwt_required()
@@ -410,7 +430,6 @@ def signup():
     athlete_id = f"ATH-2026-{count:04d}"
     
     # Calculate age from date of birth
-    from datetime import datetime
     try:
         dob = datetime.strptime(data['date_of_birth'], '%Y-%m-%d')
         today = datetime.now()
@@ -459,6 +478,111 @@ def signup():
         'swimmer_id': swimmer.id,
         'athlete_id': athlete_id
     }), 201
+
+@app.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.json
+    email = data.get('email', '').strip().lower()
+
+    # Find user by email (swimmers use email as username)
+    user = User.query.filter_by(username=email).first()
+    # Also allow admin to use their username
+    if not user:
+        user = User.query.filter_by(username=data.get('email', '').strip()).first()
+
+    if not user:
+        # Return success anyway to prevent email enumeration
+        return jsonify({'message': 'If that email is registered, you will receive an OTP.'}), 200
+
+    # Generate a 6-digit OTP
+    otp_code = ''.join(random.choices(string.digits, k=6))
+
+    # Invalidate any previous unused OTPs for this email
+    OTP.query.filter_by(email=user.username, purpose='reset', is_used=False).delete()
+
+    # Save new OTP
+    otp = OTP(
+        email=user.username,
+        code=otp_code,
+        purpose='reset',
+        created_at=datetime.utcnow(),
+        is_used=False
+    )
+    db.session.add(otp)
+    db.session.commit()
+
+    # Try to send email; fall back to console log if mail not configured
+    try:
+        if app.config.get('MAIL_USERNAME'):
+            msg = Message(
+                subject='Aquatics — Password Reset OTP',
+                recipients=[user.username],
+                html=f"""
+                <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px;
+                            background:#f0f4ff;border-radius:12px;">
+                  <h2 style="color:#001f4d;">🏊 Aquatics Password Reset</h2>
+                  <p style="color:#444;">Use the OTP below to reset your password.
+                     It expires in <strong>10 minutes</strong>.</p>
+                  <div style="font-size:2.5rem;font-weight:900;letter-spacing:12px;
+                              text-align:center;padding:24px;background:#fff;
+                              border-radius:10px;color:#003580;margin:20px 0;">
+                    {otp_code}
+                  </div>
+                  <p style="color:#888;font-size:0.88rem;">
+                    If you did not request this, ignore this email.
+                  </p>
+                </div>
+                """
+            )
+            mail.send(msg)
+            print(f'[INFO] Password reset OTP sent to {user.username}')
+        else:
+            # Mail not configured — print to console for development
+            print(f'[DEV] Password reset OTP for {user.username}: {otp_code}')
+    except Exception as e:
+        print(f'[ERROR] Failed to send email: {e}')
+        print(f'[DEV] Password reset OTP for {user.username}: {otp_code}')
+
+    return jsonify({'message': 'If that email is registered, you will receive an OTP.'}), 200
+
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    data = request.json
+    email = data.get('email', '').strip()
+    otp_code = data.get('otp', '').strip()
+    new_password = data.get('new_password', '')
+
+    if not email or not otp_code or not new_password:
+        return jsonify({'error': 'Email, OTP, and new password are required.'}), 400
+
+    if len(new_password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters.'}), 400
+
+    # Find the OTP record
+    otp = OTP.query.filter_by(
+        email=email, code=otp_code, purpose='reset', is_used=False
+    ).order_by(OTP.created_at.desc()).first()
+
+    if not otp:
+        return jsonify({'error': 'Invalid or expired OTP.'}), 400
+
+    # Check expiry (10 minutes)
+    age = (datetime.utcnow() - otp.created_at).total_seconds()
+    if age > 600:
+        return jsonify({'error': 'OTP has expired. Please request a new one.'}), 400
+
+    # Find the user and update password
+    user = User.query.filter_by(username=email).first()
+    if not user:
+        return jsonify({'error': 'User not found.'}), 404
+
+    user.password_hash = generate_password_hash(new_password)
+    otp.is_used = True
+    db.session.commit()
+
+    return jsonify({'message': 'Password reset successfully. You can now log in.'}), 200
+
 
 @app.route('/login', methods=['POST'])
 def login():
