@@ -26,5 +26,14 @@ SQLALCHEMY_ENGINE_OPTIONS = {
     'max_overflow': 20           # Maximum overflow connections
 }
 
+# ── Email Configuration (for OTP / forgot password) ──────────────────────────
+# Fill in your Gmail credentials to enable email sending.
+# Leave MAIL_USERNAME as None to run in dev mode (OTP printed to console).
+MAIL_SERVER = 'smtp.gmail.com'
+MAIL_PORT = 587
+MAIL_USE_TLS = True
+MAIL_USERNAME = None          # e.g. 'yourname@gmail.com'
+MAIL_PASSWORD = None          # Gmail App Password (not your Google password)
+
 # Alternative: Use root user (not recommended for production)
 # SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://root:your_root_password@localhost:3306/{DB_NAME}'
