@@ -44,12 +44,12 @@ class Swimmer(db.Model):
     name = db.Column(db.String(100), nullable=False)  # Full name (computed)
     date_of_birth = db.Column(db.String(20), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
-    father_name = db.Column(db.String(100), nullable=False)
-    father_mobile = db.Column(db.String(20), nullable=False)
-    mother_name = db.Column(db.String(100), nullable=False)
-    mother_mobile = db.Column(db.String(20), nullable=False)
-    ksa_id = db.Column(db.String(50), nullable=False)
-    sfi_id = db.Column(db.String(50), nullable=False)
+    father_name = db.Column(db.String(100), nullable=True)
+    father_mobile = db.Column(db.String(20), nullable=True)
+    mother_name = db.Column(db.String(100), nullable=True)
+    mother_mobile = db.Column(db.String(20), nullable=True)
+    ksa_id = db.Column(db.String(50), nullable=True)
+    sfi_id = db.Column(db.String(50), nullable=True)
     age = db.Column(db.Integer, nullable=False)
     gender = db.Column(db.String(10), nullable=False)
     classification = db.Column(db.String(20), nullable=True)
@@ -82,6 +82,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)  # 'admin' or 'swimmer'
     swimmer_id = db.Column(db.Integer, db.ForeignKey('swimmer.id'), nullable=True)
+    email_verified = db.Column(db.Boolean, default=False)
 
 class PersonalBest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -107,7 +108,7 @@ class OTP(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(6), nullable=False)
-    purpose = db.Column(db.String(20), nullable=False)  # 'reset'
+    purpose = db.Column(db.String(20), nullable=False)  # 'reset' or 'verification'
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     is_used = db.Column(db.Boolean, default=False)
 
@@ -424,6 +425,19 @@ def signup():
     # Check if username already exists
     if User.query.filter_by(username=data['email']).first():
         return jsonify({'error': 'Username already exists'}), 400
+
+    # Check duplicate by First Name + Last Name + Date of Birth
+    existing = Swimmer.query.filter_by(
+        first_name=data['first_name'].strip(),
+        last_name=data['last_name'].strip(),
+        date_of_birth=data['date_of_birth']
+    ).first()
+    if existing:
+        return jsonify({
+            'error': f'A swimmer with this name and date of birth is already registered. '
+                     f'Name: {existing.first_name} {existing.last_name}, Email: {existing.email}',
+            'redirect_email': existing.email
+        }), 400
     
     # Auto-generate athlete_id
     count = Swimmer.query.count() + 1
@@ -446,12 +460,12 @@ def signup():
         name=full_name,
         date_of_birth=data['date_of_birth'],
         email=data['email'],
-        father_name=data['father_name'],
-        father_mobile=data['father_mobile'],
-        mother_name=data['mother_name'],
-        mother_mobile=data['mother_mobile'],
-        ksa_id=data['ksa_id'],
-        sfi_id=data['sfi_id'],
+        father_name=data.get('father_name'),
+        father_mobile=data.get('father_mobile'),
+        mother_name=data.get('mother_name'),
+        mother_mobile=data.get('mother_mobile'),
+        ksa_id=data.get('ksa_id'),
+        sfi_id=data.get('sfi_id'),
         age=age,
         gender=data.get('gender', 'Not specified'),
         classification=data.get('classification'),
@@ -461,23 +475,180 @@ def signup():
     db.session.add(swimmer)
     db.session.flush()  # Get swimmer.id before committing
     
-    # Create user account (username is email, password is default)
+    # Create user account (username is email, password is default, email not verified yet)
     user = User(
         username=data['email'],
         password_hash=generate_password_hash(data['password']),
         role='swimmer',
-        swimmer_id=swimmer.id
+        swimmer_id=swimmer.id,
+        email_verified=False
     )
     db.session.add(user)
     db.session.commit()
+    
+    # Generate a 6-digit OTP for email verification
+    otp_code = ''.join(random.choices(string.digits, k=6))
+    
+    # Invalidate any previous unused OTPs for this email
+    OTP.query.filter_by(email=data['email'], purpose='verification', is_used=False).delete()
+    
+    # Save new OTP
+    otp = OTP(
+        email=data['email'],
+        code=otp_code,
+        purpose='verification',
+        created_at=datetime.utcnow(),
+        is_used=False
+    )
+    db.session.add(otp)
+    db.session.commit()
+    
+    # Try to send email; fall back to console log if mail not configured
+    try:
+        if app.config.get('MAIL_USERNAME'):
+            msg = Message(
+                subject='Aquatics — Email Verification',
+                recipients=[data['email']],
+                html=f"""
+                <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px;
+                            background:#f0f4ff;border-radius:12px;">
+                  <h2 style="color:#001f4d;">🏊 Welcome to Aquatics!</h2>
+                  <p style="color:#444;">Thank you for registering. Please verify your email using the OTP below.
+                     It expires in <strong>10 minutes</strong>.</p>
+                  <div style="font-size:2.5rem;font-weight:900;letter-spacing:12px;
+                              text-align:center;padding:24px;background:#fff;
+                              border-radius:10px;color:#003580;margin:20px 0;">
+                    {otp_code}
+                  </div>
+                  <p style="color:#888;font-size:0.88rem;">
+                    Your Athlete ID: <strong>{athlete_id}</strong>
+                  </p>
+                </div>
+                """
+            )
+            mail.send(msg)
+            print(f'[INFO] Verification OTP sent to {data["email"]}')
+        else:
+            # Mail not configured — print to console for development
+            print(f'[DEV] Verification OTP for {data["email"]}: {otp_code}')
+    except Exception as e:
+        print(f'[ERROR] Failed to send email: {e}')
+        print(f'[DEV] Verification OTP for {data["email"]}: {otp_code}')
     
     return jsonify({
         'id': user.id,
         'username': user.username,
         'role': user.role,
         'swimmer_id': swimmer.id,
-        'athlete_id': athlete_id
+        'athlete_id': athlete_id,
+        'message': 'Account created! Please verify your email with the OTP sent to your email address.'
     }), 201
+
+@app.route('/verify-email', methods=['POST'])
+def verify_email():
+    data = request.json
+    email = data.get('email', '').strip()
+    otp_code = data.get('otp', '').strip()
+
+    if not email or not otp_code:
+        return jsonify({'error': 'Email and OTP are required.'}), 400
+
+    # Find the OTP record
+    otp = OTP.query.filter_by(
+        email=email, code=otp_code, purpose='verification', is_used=False
+    ).order_by(OTP.created_at.desc()).first()
+
+    if not otp:
+        return jsonify({'error': 'Invalid or expired OTP.'}), 400
+
+    # Check expiry (10 minutes)
+    age = (datetime.utcnow() - otp.created_at).total_seconds()
+    if age > 600:
+        return jsonify({'error': 'OTP has expired. Please request a new one.'}), 400
+
+    # Find the user and mark email as verified
+    user = User.query.filter_by(username=email).first()
+    if not user:
+        return jsonify({'error': 'User not found.'}), 404
+
+    user.email_verified = True
+    otp.is_used = True
+    db.session.commit()
+
+    return jsonify({'message': 'Email verified successfully! You can now log in.'}), 200
+
+@app.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    data = request.json
+    email = data.get('email', '').strip()
+
+    if not email:
+        return jsonify({'error': 'Email is required.'}), 400
+
+    # Find user by email
+    user = User.query.filter_by(username=email).first()
+    if not user:
+        # Return success to prevent email enumeration
+        return jsonify({'message': 'If that email is registered, a verification OTP will be sent.'}), 200
+
+    # Check if already verified
+    if user.email_verified:
+        return jsonify({'error': 'Email is already verified. Please login.'}), 400
+
+    # Generate a 6-digit OTP for email verification
+    otp_code = ''.join(random.choices(string.digits, k=6))
+
+    # Invalidate any previous unused OTPs for this email
+    OTP.query.filter_by(email=email, purpose='verification', is_used=False).delete()
+
+    # Save new OTP
+    otp = OTP(
+        email=email,
+        code=otp_code,
+        purpose='verification',
+        created_at=datetime.utcnow(),
+        is_used=False
+    )
+    db.session.add(otp)
+    db.session.commit()
+
+    # Get swimmer details for athlete ID
+    swimmer = Swimmer.query.filter_by(email=email).first()
+    athlete_id = swimmer.athlete_id if swimmer else 'N/A'
+
+    # Try to send email; fall back to console log if mail not configured
+    try:
+        if app.config.get('MAIL_USERNAME'):
+            msg = Message(
+                subject='Aquatics — Email Verification',
+                recipients=[email],
+                html=f"""
+                <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px;
+                            background:#f0f4ff;border-radius:12px;">
+                  <h2 style="color:#001f4d;">🏊 Welcome to Aquatics!</h2>
+                  <p style="color:#444;">Please verify your email using the OTP below.
+                     It expires in <strong>10 minutes</strong>.</p>
+                  <div style="font-size:2.5rem;font-weight:900;letter-spacing:12px;
+                              text-align:center;padding:24px;background:#fff;
+                              border-radius:10px;color:#003580;margin:20px 0;">
+                    {otp_code}
+                  </div>
+                  <p style="color:#888;font-size:0.88rem;">
+                    Your Athlete ID: <strong>{athlete_id}</strong>
+                  </p>
+                </div>
+                """
+            )
+            mail.send(msg)
+            print(f'[INFO] Verification OTP resent to {email}')
+        else:
+            # Mail not configured — print to console for development
+            print(f'[DEV] Verification OTP for {email}: {otp_code}')
+    except Exception as e:
+        print(f'[ERROR] Failed to send email: {e}')
+        print(f'[DEV] Verification OTP for {email}: {otp_code}')
+
+    return jsonify({'message': 'Verification OTP sent to your email address.'}), 200
 
 @app.route('/forgot-password', methods=['POST'])
 def forgot_password():
@@ -590,6 +761,10 @@ def login():
     user = User.query.filter_by(username=data['username']).first()
     
     if user and check_password_hash(user.password_hash, data['password']):
+        # Check if email is verified (skip for admin)
+        if user.role != 'admin' and not user.email_verified:
+            return jsonify({'error': 'Please verify your email before logging in. Check your inbox for the verification OTP.'}), 403
+        
         # Create JWT tokens
         access_token = create_access_token(identity=user.id)
         refresh_token = create_refresh_token(identity=user.id)
@@ -685,7 +860,8 @@ if __name__ == '__main__':
             admin = User(
                 username='admin',
                 password_hash=generate_password_hash('admin123'),
-                role='admin'
+                role='admin',
+                email_verified=True
             )
             db.session.add(admin)
             db.session.commit()

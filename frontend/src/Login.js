@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './Login.css';
 
 function Login({ onLogin, onBackToHome }) {
-  // view: 'login' | 'signup' | 'forgot' | 'reset'
+  // view: 'login' | 'signup' | 'forgot' | 'reset' | 'verify'
   const [view, setView] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -15,6 +15,22 @@ function Login({ onLogin, onBackToHome }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Email verification states
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyOtp, setVerifyOtp] = useState('');
+
+  // Error modal
+  const [errorModal, setErrorModal] = useState({ show: false, message: '', redirectEmail: null });
+  const showErrorModal = (msg, redirectEmail = null) => setErrorModal({ show: true, message: msg, redirectEmail });
+  const closeErrorModal = () => {
+    const redirectTo = errorModal.redirectEmail;
+    setErrorModal({ show: false, message: '', redirectEmail: null });
+    if (redirectTo) {
+      setUsername(redirectTo);
+      goTo('login');
+    }
+  };
 
   // Signup fields
   const [signupData, setSignupData] = useState({
@@ -112,14 +128,62 @@ function Login({ onLogin, onBackToHome }) {
       });
       if (response.ok) {
         const result = await response.json();
-        setSuccess(`Account created! Athlete ID: ${result.athlete_id}. Please login with your email.`);
-        setTimeout(() => { setUsername(signupData.email); goTo('login'); }, 2500);
+        setSuccess(`Account created! Athlete ID: ${result.athlete_id}. ${result.message}`);
+        setVerifyEmail(signupData.email);
+        setTimeout(() => { goTo('verify'); }, 2500);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Signup failed. Please try again.');
+        const errMsg = errorData.error || 'Signup failed. Please try again.';
+        showErrorModal(errMsg, errorData.redirect_email || null);
       }
     } catch {
       setError('Connection error. Please check if the backend is running.');
+    }
+  };
+
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    clearMessages();
+    setSending(true);
+    try {
+      const response = await fetch('http://localhost:5000/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verifyEmail, otp: verifyOtp })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess('Email verified successfully! Redirecting to login...');
+        setTimeout(() => { setUsername(verifyEmail); goTo('login'); }, 2000);
+      } else {
+        setError(data.error || 'Verification failed. Please try again.');
+      }
+    } catch {
+      setError('Connection error. Please check if the backend is running.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    clearMessages();
+    setSending(true);
+    try {
+      const response = await fetch('http://localhost:5000/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verifyEmail })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess(data.message || 'Verification OTP sent! Check your email.');
+      } else {
+        setError(data.error || 'Failed to resend OTP.');
+      }
+    } catch {
+      setError('Connection error. Please check if the backend is running.');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -131,11 +195,25 @@ function Login({ onLogin, onBackToHome }) {
     signup: { sub: 'Create Swimmer Account',  hint: null },
     forgot: { sub: 'Forgot Password',         hint: 'Enter your registered email to receive an OTP' },
     reset:  { sub: 'Reset Password',          hint: `OTP sent to ${forgotEmail}` },
+    verify: { sub: 'Verify Email',            hint: `OTP sent to ${verifyEmail}` },
   };
   const { sub, hint } = titles[view];
 
   return (
     <div className="login-container">
+      {/* ── ERROR MODAL ── */}
+      {errorModal.show && (
+        <div className="error-modal-overlay" onClick={closeErrorModal}>
+          <div className="error-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="error-modal-icon">⚠️</div>
+            <h3 className="error-modal-title">Registration Error</h3>
+            <p className="error-modal-message">{errorModal.message}</p>
+            <button className="error-modal-close-btn" onClick={closeErrorModal}>
+              {errorModal.redirectEmail ? 'Go to Login →' : 'OK'}
+            </button>
+          </div>
+        </div>
+      )}
       {/* Left branding panel */}
       <div className="login-branding">
         <button onClick={onBackToHome} className="back-to-home-btn">← Back to Home</button>
@@ -247,6 +325,29 @@ function Login({ onLogin, onBackToHome }) {
           </>
         )}
 
+        {/* ── EMAIL VERIFICATION ── */}
+        {view === 'verify' && (
+          <>
+            <form onSubmit={handleVerifySubmit} className="login-form">
+              <input className="otp-input" type="text" placeholder="Enter 6-digit OTP"
+                value={verifyOtp} onChange={(e) => setVerifyOtp(e.target.value)}
+                maxLength={6} required />
+              {error && <div className="error-message">{error}</div>}
+              {success && <div className="success-message">{success}</div>}
+              <button type="submit" className="login-btn" disabled={sending}>
+                {sending ? 'Verifying…' : 'Verify Email'}
+              </button>
+            </form>
+            <div className="toggle-mode">
+              <p>Didn't get the OTP?
+                <button type="button" onClick={handleResendVerification} className="link-btn" disabled={sending}>
+                  Resend
+                </button>
+              </p>
+            </div>
+          </>
+        )}
+
         {/* ── SIGNUP ── */}
         {view === 'signup' && (
           <>
@@ -277,21 +378,21 @@ function Login({ onLogin, onBackToHome }) {
               </div>
               <input type="password" name="password" placeholder="Password *"
                 value={signupData.password} onChange={handleSignupChange} required minLength="6" />
-              <div className="form-section-title">Father's Details</div>
-              <input type="text" name="father_name" placeholder="Father's Name *"
-                value={signupData.father_name} onChange={handleSignupChange} required />
-              <input type="tel" name="father_mobile" placeholder="Father's Mobile *"
-                value={signupData.father_mobile} onChange={handleSignupChange} required />
-              <div className="form-section-title">Mother's Details</div>
-              <input type="text" name="mother_name" placeholder="Mother's Name *"
-                value={signupData.mother_name} onChange={handleSignupChange} required />
-              <input type="tel" name="mother_mobile" placeholder="Mother's Mobile *"
-                value={signupData.mother_mobile} onChange={handleSignupChange} required />
-              <div className="form-section-title">Registration IDs</div>
-              <input type="text" name="ksa_id" placeholder="KSA ID *"
-                value={signupData.ksa_id} onChange={handleSignupChange} required />
-              <input type="text" name="sfi_id" placeholder="SFI ID *"
-                value={signupData.sfi_id} onChange={handleSignupChange} required />
+              <div className="form-section-title">Father's Details (Optional)</div>
+              <input type="text" name="father_name" placeholder="Father's Name"
+                value={signupData.father_name} onChange={handleSignupChange} />
+              <input type="tel" name="father_mobile" placeholder="Father's Mobile"
+                value={signupData.father_mobile} onChange={handleSignupChange} />
+              <div className="form-section-title">Mother's Details (Optional)</div>
+              <input type="text" name="mother_name" placeholder="Mother's Name"
+                value={signupData.mother_name} onChange={handleSignupChange} />
+              <input type="tel" name="mother_mobile" placeholder="Mother's Mobile"
+                value={signupData.mother_mobile} onChange={handleSignupChange} />
+              <div className="form-section-title">Registration IDs (Optional)</div>
+              <input type="text" name="ksa_id" placeholder="KSA ID"
+                value={signupData.ksa_id} onChange={handleSignupChange} />
+              <input type="text" name="sfi_id" placeholder="SFI ID"
+                value={signupData.sfi_id} onChange={handleSignupChange} />
               {error && <div className="error-message">{error}</div>}
               {success && <div className="success-message">{success}</div>}
               <button type="submit" className="login-btn">Create Account</button>

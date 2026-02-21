@@ -297,6 +297,75 @@
   margin-bottom: 20px;
 }
 
+/* ===== Error Modal ===== */
+.error-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+.error-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px 32px 28px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  animation: slideUp 0.25s ease;
+}
+
+.error-modal-icon {
+  font-size: 2.8rem;
+  margin-bottom: 12px;
+}
+
+.error-modal-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #c0392b;
+  margin: 0 0 12px;
+}
+
+.error-modal-message {
+  font-size: 0.97rem;
+  color: #444;
+  line-height: 1.6;
+  margin: 0 0 24px;
+  word-break: break-word;
+}
+
+.error-modal-close-btn {
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 40px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.error-modal-close-btn:hover {
+  background: #c0392b;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 /* ===== Messages ===== */
 .error-message {
   background: #fff0f0;
