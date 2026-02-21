@@ -51,8 +51,8 @@ function Home({ onNavigateToLogin }) {
                 <img src="https://via.placeholder.com/400x250/0066cc/ffffff?text=Swimming+Event" alt="Event" />
               </div>
               <div className="event-details">
-                <h3>15th Edition of Treamis Interschool Aquatic Championship</h3>
-                <p className="event-date">October 8, 2025</p>
+                <h3>Event Name</h3>
+                <p className="event-date">Jan 8, 2025</p>
                 <p className="event-meta">Event, News, Results, Swimming</p>
                 <button className="read-more-btn">READ MORE</button>
               </div>
@@ -63,8 +63,8 @@ function Home({ onNavigateToLogin }) {
                 <img src="https://via.placeholder.com/400x250/764ba2/ffffff?text=Championship" alt="Event" />
               </div>
               <div className="event-details">
-                <h3>Asian Open Schools Invitational (AOSI) Long Course (50m) Swimming Championships Bangkok 2026</h3>
-                <p className="event-date">September 26, 2025</p>
+                <h3>Event Name</h3>
+                <p className="event-date">Jan 26, 2025</p>
                 <p className="event-meta">Event, News, Results, Swimming</p>
                 <button className="read-more-btn">READ MORE</button>
               </div>
@@ -75,8 +75,8 @@ function Home({ onNavigateToLogin }) {
                 <img src="https://via.placeholder.com/400x250/667eea/ffffff?text=Training" alt="Event" />
               </div>
               <div className="event-details">
-                <h3>Maximizing Performance with Altitude Training</h3>
-                <p className="event-date">August 13, 2025</p>
+                <h3>Event Name</h3>
+                <p className="event-date">Jan 13, 2025</p>
                 <p className="event-meta">Event, News, Swimming</p>
                 <button className="read-more-btn">READ MORE</button>
               </div>
